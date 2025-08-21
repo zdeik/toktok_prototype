@@ -89,19 +89,19 @@ if "sample_data" not in st.session_state:
 if "selected_consultation" not in st.session_state:
     st.session_state.selected_consultation = None
 if "page" not in st.session_state:
-    st.session_state.page = "메인"
+    st.session_state.page = "메인"  # 기본 페이지를 상담 대시보드로 변경 예정
 
 # ------------------------
 # 페이지별 함수
 # ------------------------
-def main_page():
+def consultation_history_page():  # 기존 메인 -> 상담 이력
     st.markdown("### 상담 이력")
     
     search_name = st.text_input("상담자 이름 검색")
     df = st.session_state.sample_data.copy()
     
     if search_name:
-        df_filtered = df[df["상담자"].str.contains(search_name)]
+        df_filtered = df[df["상담자"].str.contains(search_name, case=False)]
     else:
         df_filtered = df
     
@@ -148,13 +148,13 @@ def consultation_detail_page():
             st.markdown(f'<div class="chat-message user-message"><strong>{consult["상담자"]}</strong><br>{conv["message"]}</div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="chat-message counselor-message"><strong>{consult["상담사"]}</strong><br>{conv["message"]}</div>', unsafe_allow_html=True)
-    if st.button("⬅ 메인으로 돌아가기"):
-        st.session_state.page = "메인"
+    if st.button("⬅ 상담 이력으로 돌아가기"):
+        st.session_state.page = "상담 이력"
         st.session_state.selected_consultation = None
         st.rerun()
 
-def dashboard_page():
-    st.markdown("### 상담사 대시보드")
+def dashboard_page():  # 메인 페이지로 변경
+    st.markdown("### 상담 대시보드")
     df = st.session_state.sample_data.copy()
     df['상담_datetime'] = pd.to_datetime(df['상담일'] + ' ' + df['상담 시간'])
 
@@ -163,10 +163,17 @@ def dashboard_page():
     # KPI
     st.markdown("#### 주요 지표")
     col1, col2, col3, col4 = st.columns(4)
+    total_consultations = len(df)
+    total_yesterday = df[df['상담_datetime'].dt.date <= (datetime.now().date() - pd.Timedelta(days=1))].shape[0]
+    delta_total = total_consultations - total_yesterday
+
     with col1:
-        st.metric("총 상담 건수", len(df))
+        st.metric("총 상담 건수", total_consultations, delta=delta_total)
     with col2:
-        st.metric("오늘 누적 상담 건수", df[df['상담_datetime'].dt.date == datetime.now().date()].shape[0])
+        today_count = df[df['상담_datetime'].dt.date == datetime.now().date()].shape[0]
+        yesterday_count = df[df['상담_datetime'].dt.date == (datetime.now().date() - pd.Timedelta(days=1))].shape[0]
+        delta = today_count - yesterday_count
+        st.metric("오늘 누적 상담 건수", today_count, delta=delta)
     with col3:
         st.metric("평균 상담 소요 시간", f"{df['상담 소요 시간(분)'].mean().round(1)}분")
     with col4:
@@ -185,7 +192,6 @@ def dashboard_page():
             labels={'상담사': '상담사', '건수': '상담 건수'}
         )
         st.plotly_chart(fig_counselor_counts, use_container_width=True)
-
     with col6:
         counselor_avg_duration = df.groupby('상담사')['상담 소요 시간(분)'].mean().reset_index(name='평균 소요 시간(분)').sort_values('평균 소요 시간(분)', ascending=False)
         fig_counselor_duration = px.bar(
@@ -237,11 +243,13 @@ def dashboard_page():
 # ------------------------
 with st.sidebar:
     st.markdown("## 메뉴")
-    menu_options = ["메인", "새 상담", "상담 상세", "상담 대시보드"]
+    menu_options = ["메인", "새 상담", "상담 상세", "상담 이력"]
+    # 기본 페이지를 상담 대시보드로 설정
+    default_index = 0 if st.session_state.page == "메인" else menu_options.index(st.session_state.page)
     menu = st.radio(
         "이동", 
         menu_options, 
-        index=menu_options.index(st.session_state.page) if st.session_state.page in menu_options else 0
+        index=default_index
     )
     st.session_state.page = menu
 
@@ -249,10 +257,10 @@ with st.sidebar:
 # 페이지 표시
 # ------------------------
 if st.session_state.page == "메인":
-    main_page()
+    dashboard_page()
 elif st.session_state.page == "새 상담":
     new_consultation_page()
 elif st.session_state.page == "상담 상세":
     consultation_detail_page()
-elif st.session_state.page == "상담 대시보드":
-    dashboard_page()
+elif st.session_state.page == "상담 이력":
+    consultation_history_page()
