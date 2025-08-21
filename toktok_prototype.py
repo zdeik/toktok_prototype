@@ -173,7 +173,7 @@ def consultation_detail_page():
 
 def dashboard_page():
     """상담 데이터를 시각화하는 대시보드 페이지 함수입니다."""
-    st.markdown("### 📊 상담사 대시보드")
+    st.markdown("### 상담사 대시보드")
     df = st.session_state.sample_data.copy()
     df['상담_datetime'] = pd.to_datetime(df['상담일'] + ' ' + df['상담 시간'])
     
